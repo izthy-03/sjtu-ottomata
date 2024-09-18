@@ -12,7 +12,6 @@ def get_session(session):
     return True
 
 def get_JAAuthCookie(session):
-    #url = 'https://jaccount.sjtu.edu.cn/jaccount/ulogin'
     url = 'https://jaccount.sjtu.edu.cn/oauth2/authorize?response_type=code&scope=profile&client_id=mB5nKHqC00MusWAgnqSF&redirect_uri=https://sports.sjtu.edu.cn/oauth2Login'
     res = session.get(url).text
 

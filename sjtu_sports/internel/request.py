@@ -1,14 +1,17 @@
 import requests
 import json
 from time import time
+
 from sjtu_sports.internel.encrypt import (aes_encrypt, rsa_encrypt)
 from sjtu_sports.resources import pubkey
 from sjtu_sports.utils import (get_key, get_timestamp_ms)
+from sjtu_sports.utils.error import *
+
 
 def _request(session, method, url, params=None, data=None):
     """Request with params.
 
-    Easy to use requests and auto retry.
+    Internel request function.
 
     Args:
         session: requests session, login session.
@@ -20,6 +23,11 @@ def _request(session, method, url, params=None, data=None):
     Returns:
         response: response, text.
     """
+    if method not in ['POST', 'GET']:
+        raise OttoError(ErrorCode_kMethodNotAllowed, "Method not allowed.")
+    if not session:
+        raise OttoError(ErrorCode_kInvalidSession, "Invalid session.")
+
     res = session.request(method, url, params=params, data=data)
     return res.text
 
@@ -30,12 +38,14 @@ def get_field_info(session, field_type, date, venue_id):
     Args:
         session: requests session, login session.
         field_type: string, field type. 
-        date: string, date.
-        venueId: string, venueId.
+        date: string, date. e.g. '2021-09-01'.
+        venue_id: string, venueId.
 
     Returns:
         list: field info list.
-        err:  Exception.
+    
+    Raises:
+        OttoError: error.
     """
     url = "https://sports.sjtu.edu.cn/manage/fieldDetail/queryFieldSituation" 
 
@@ -48,9 +58,11 @@ def get_field_info(session, field_type, date, venue_id):
 
     res = json.loads(res)
     if res['code'] != 0:
-        return None, Exception(res['msg'])
+        if res['code'] == 401:
+            raise OttoError(ErrorCode_kLoginExpired, res['msg'])
+        # TODO: Analyze other returned error codes
 
-    return res['data'], None
+    return res['data']
     
 
 def confirm_order(session, order):
@@ -60,13 +72,8 @@ def confirm_order(session, order):
         session: requests session, login session.
         order: dict, order data.
 
-    Returns:
-        status:
-        - 0, success.
-        - 1, login expired.
-        - 2, order failed.
-        - 3, unknown error.
-        err:  Exception.
+    Raises:
+        err: OttoError.
 
     """
     url = 'https://sports.sjtu.edu.cn//venue/personal/ConfirmOrder'
@@ -87,18 +94,18 @@ def confirm_order(session, order):
     }
 
     res = _request(session, 'POST', url, params=headers, data=order_encrypted)
+    # HTML response
     if "登录" in res:
-        return 1, Exception("Login expired.")
+        raise OttoError(ErrorCode_kLoginExpired, "Confirm order failed, login expired.")
     if "操作异常" in res:
-        return 2, Exception("Order failed.")
+        raise OttoError(ErrorCode_kInvalidOrder, "Invalid order.")
 
-    # parse as json
+    # JSON response
     try:
         res = json.loads(res)
     except:
-        return 3, Exception("Unknown error.")
+        raise OttoError(ErrorCode_kUnknown, "Unknown error in confirm order.")
 
     if res['code'] != 0:
-        return 2, Exception(res['msg'])
+        raise OttoError(ErrorCode_kInvalidOrder, res['msg'])
     
-    return 0, None
