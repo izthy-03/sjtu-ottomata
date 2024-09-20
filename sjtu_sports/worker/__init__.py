@@ -1,4 +1,5 @@
 import threading
+import datetime 
 from abc import ABC, abstractmethod
 
 
@@ -20,13 +21,28 @@ class OttoTask():
         self.num = num
         self.strategy = strategy
 
-        self._id = -1
-        self._status = "Undefined"
-        self._mux = threading.Lock()
+        self.venue_type_id = None
 
+        self.id = -1
+        self.status = "Undefined"
+        self.mux = threading.Lock()
+
+        # process start times
         if self.start_time == "any":
             self.start_time = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
         self.start_time.sort()
+        # delete start time out of 7~22
+        self.start_time = [time for time in self.start_time if time >= 7 and time <= 22]
+
+        # calculate week
+        week = datetime.datetime.strptime(date, "%Y-%m-%d").weekday()
+        self.week = (week+1) % 7
+
+    def update_status(self, status):
+        self.mux.acquire()
+        self.status = status
+        self.mux.release()
+
 
 class WorkerInterface(ABC):
     @abstractmethod
@@ -39,8 +55,4 @@ class WorkerInterface(ABC):
 
     @abstractmethod
     def list_task(self):
-        pass
-
-    @abstractmethod
-    def update_session(self):
         pass

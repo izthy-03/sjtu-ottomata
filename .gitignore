@@ -1,3 +1,4 @@
 .vscode/
 captcha.jpeg
 cookie.save
+**/__pycache__/

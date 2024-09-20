@@ -3,3 +3,15 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArKZOdKQAL+iYzJ4Q5EQzwv/yvVPnfdNVKRgN
 -----END PUBLIC KEY-----
 '''
 
+# TODO: find tensity=1
+tensity_list = (
+    "正常",      # tensity = 0  
+    "",         # tensity = 1
+    "很紧张",    # tensity = 2 
+    "非常紧张",  # tensity = 3
+)
+
+# TODO: find all venue ids
+venue_ids = {
+
+}

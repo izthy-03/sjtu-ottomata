@@ -7,6 +7,7 @@ ErrorCode_kInvalidSession = 2
 # API
 ErrorCode_kLoginExpired = 100
 ErrorCode_kInvalidOrder = 101
+ErrorCode_kFieldTypeNotFound = 102
 
 ErrorCode_kUnknown = 199
 
@@ -17,6 +18,7 @@ ErrorCode_name = {
 
     100: "kLoginExpired",
     101: "kInvalidOrder",
+    102: "kFieldTypeNotFound",
     199: "kUnknown"
 }
 

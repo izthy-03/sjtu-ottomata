@@ -1,9 +1,14 @@
 import threading
 import time
-from sjtu_sports.worker import WorkerInterface
-from sjtu_sports.internel.request import get_field_info, confirm_order
-from sjtu_sports.internel.credential import get_session
+
 from sjtu_sports.utils.error import *
+from sjtu_sports.worker import WorkerInterface, OttoTask
+from sjtu_sports.internel.credential import get_session
+from sjtu_sports.internel.request import (
+    get_field_info, confirm_order, get_venue_type_id
+)
+
+from sjtu_sports.resources import tensity_list 
 
 class WorkerImpl(WorkerInterface):
     def __init__(self, session) -> None:
@@ -17,62 +22,100 @@ class WorkerImpl(WorkerInterface):
         update_thread = threading.Thread(target=self.__update_session)
         update_thread.setDaemon(True)
 
-    def __start_task(self, task):
-        task._mux.acquire()
-        task._status = "Running"
-        task._mux.release()
+    def __start_task(self, task: OttoTask):
+
+        task.update_status("Initializing")
+        
+        # Get venTypeId by venueId and fieldType
+        while True:
+            try:
+                task.venue_type_id = get_venue_type_id(self.session, task.venue_id, task.field_type)
+                break
+
+            except OttoError as err:
+                # TODO: WARN level log
+                print(f"Task {task.id} failed on getting venue type id list: {err}")
+                time.sleep(1)
+                continue
+            except Exception as err:
+                # TODO: ERROR level log
+                print(f"Task {task.id} failed on getting venue type id list: {err}")
+                task.update_status("InitErr:" + str(err))
+                return
+            
+        task.update_status("RUNNING")
 
         while True:
             # 1. Query field info
             try: 
-                fields, err = get_field_info(self.session, task.field_type, task.date, task.venue_id) 
+                fields = get_field_info(self.session, task.field_type, task.date, task.venue_id) 
+
             except OttoError as err:
-                if err.error_code == ErrorCode_kLoginExpired:
-                   time.sleep(1)
-                   continue 
-                else:
-                    task._mux.acquire()
-                    task._status = ErrorCode_name[err.error_code]
-                    print(f"Task {task._id} failed: {err}")
-                    task._mux.release()
-                    break
+                # TODO: WARN level log
+                print(f"Task {task.id} failed on getting field info: {err}") 
+                time.sleep(1)
+                continue
+
+            except Exception as err:
+                # TODO: ERROR level log 
+                print(f"Task {task.id} failed on getting field info: {err}")
+                task.update_status("GetFieldInfoErr:" + str(err))
+                return 
+
             # 2. Check field availability
             available_fields = []
             for field in fields:
-                for time in task.start_time:
-                    if time < 7:
+                for start_time in task.start_time:
+                    if start_time < 7 or start_time > len(field['priceList']):
                         continue
-                    price_list = field['priceList'][time-7]
-                    if price_list['count'] > 0:
-                        available_fields.append((field, price_list))
+                    sub_field = field['priceList'][start_time-7]
+                    if sub_field['count'] > 0:
+                        available_fields.append((field, sub_field, start_time))
 
             if len(available_fields) == 0:
                time.sleep(1)
                continue 
 
             # 3. Confirm order
+            format_time = lambda x: f"{x}:00-{x+1}:00"
+            spaces = [] 
             for i in range(task.num):
-                field, price_list = available_fields[i]
-                data = {
-                    'fieldId': field['fieldId'],
-                    'fieldType': field['fieldType'],
-                    'venueId': field['venueId'],
-                    'date': task.date,
-                    'startTime': field['startTime'],
-                    'endTime': field['endTime'],
-                    'price': price_list['price'],
-                    'priceId': price_list['priceId'],
-                    'count': 1
-                }
-                try:
-                    confirm_order(self.session, data)
-                except OttoError as err:
-                    task._mux.acquire()
-                    task._status = ErrorCode_name[err.error_code]
-                    print(f"Task {task._id} failed: {err}")
-                    task._mux.release()
-                    break
-            
+                field, sub_field, start_time = available_fields[i]
+                spaces.append({
+                    "count": 1,
+                    "venuePrice": sub_field['price'],
+                    "status": 1,
+                    "scheduleTime": format_time(start_time),
+                    "subSitename": field['fieldName'],
+                    "subSiteId": field['fieldId'],
+                    "tensity": field['fieldDetailStatus'],
+                    "venueNum": 1
+                }) 
+
+            data = {
+                "venTypeId": task.venue_type_id,
+                "venueId": task.venue_id,
+                "fieldType": task.field_type,
+                "returnUrl": "https://sports.sjtu.edu.cn/#/paymentResult/1",
+                "scheduleDate": task.date,
+                "week": task.week,
+                "tensity": tensity_list[field['fieldDetailStatus']],
+                "spaces": spaces
+            }  
+
+            try:
+                confirm_order(self.session, data)
+            except OttoError as err:
+                # TODO: WARN level log
+                print(f"Task {task.id} failed: {err}")
+                continue
+
+            # 4. Task finished
+            # TODO: Info level log
+            print(f"Task {task.id} finished.")
+            task.update_status("Finished")
+            return
+
     
     def __update_session(self):
         """
@@ -86,8 +129,8 @@ class WorkerImpl(WorkerInterface):
     def add_task(self, task):
         self.mux.acquire()
         print('add task')
-        task._id = self._task_id_counter
-        task._status = "Pending" 
+        task.id = self._task_id_counter
+        task.update_status("Pending")
 
         task_thread = threading.Thread(target=self.__start_task, args=(task,))
         self.tasks.append(task)

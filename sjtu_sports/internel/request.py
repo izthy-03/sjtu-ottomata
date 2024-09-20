@@ -61,9 +61,53 @@ def get_field_info(session, field_type, date, venue_id):
         if res['code'] == 401:
             raise OttoError(ErrorCode_kLoginExpired, res['msg'])
         # TODO: Analyze other returned error codes
-
-    return res['data']
+        raise OttoError(ErrorCode_kUnknown, res['msg'])
     
+    return res['data']
+
+
+def get_venue_type_id(session, venue_id, field_type):
+    """
+    Get venue type id by venue id and field type.
+    
+    Args:
+        session: requests session, login session.
+        venue_id: string, venue id.
+        field_type: string, field type.
+
+    Returns:
+        string: venue type id.
+    """
+    sports = get_venue_type_id_list(session, venue_id)
+    for sport in sports:
+        if sport['name'] == field_type:
+            return sport['id']
+
+    raise OttoError(ErrorCode_kFieldTypeNotFound, f"Field type {field_type} not found.") 
+
+
+def get_venue_type_id_list(session, venue_id):
+    """
+    Query venue type id list by venue id.
+    
+    Args:
+        session: requests session, login session.
+        venue_id: string, venue id.
+    
+    Returns:
+        list: venue type id list.
+    """
+    url = "https://sports.sjtu.edu.cn/manage/venue/queryVenueById"
+    data = {
+        "id": venue_id
+    }    
+    res = _request(session, 'POST', url, data=data)
+    if "登录" in res:
+        raise OttoError(ErrorCode_kLoginExpired, "Get venue type id list failed, login expired.")
+
+    res = json.loads(res)
+    return res['data']['motionTypes'] 
+
 
 def confirm_order(session, order):
     """Confirm order.
