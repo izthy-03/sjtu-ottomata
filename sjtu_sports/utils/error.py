@@ -8,6 +8,7 @@ ErrorCode_kInvalidSession = 2
 ErrorCode_kLoginExpired = 100
 ErrorCode_kInvalidOrder = 101
 ErrorCode_kFieldTypeNotFound = 102
+ErrorCode_kInvalidFieldMeta = 103
 
 ErrorCode_kUnknown = 199
 
@@ -19,6 +20,7 @@ ErrorCode_name = {
     100: "kLoginExpired",
     101: "kInvalidOrder",
     102: "kFieldTypeNotFound",
+    103: "kInvalidFieldMeta",
     199: "kUnknown"
 }
 

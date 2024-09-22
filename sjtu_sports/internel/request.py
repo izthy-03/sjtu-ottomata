@@ -8,7 +8,7 @@ from sjtu_sports.utils import (get_key, get_timestamp_ms)
 from sjtu_sports.utils.error import *
 
 
-def _request(session, method, url, params=None, data=None):
+def _request(session: requests.Session, method, url, headers=None, data=None, json=None):
     """Request with params.
 
     Internel request function.
@@ -17,7 +17,7 @@ def _request(session, method, url, params=None, data=None):
         session: requests session, login session.
         method: string, 'POST' OR 'GET'.
         url: string, post url.
-        params=None: dict, get param.
+        headers=None: dict, get header.
         data=None: dict, post param.
 
     Returns:
@@ -28,16 +28,17 @@ def _request(session, method, url, params=None, data=None):
     if not session:
         raise OttoError(ErrorCode_kInvalidSession, "Invalid session.")
 
-    res = session.request(method, url, params=params, data=data)
+    res = session.request(method, url, headers=headers, data=data, json=json)
+
     return res.text
 
 
-def get_field_info(session, field_type, date, venue_id):
+def get_field_info(session, field_type_id, date, venue_id):
     """Get field info.
 
     Args:
         session: requests session, login session.
-        field_type: string, field type. 
+        field_type_id: string, field type id.
         date: string, date. e.g. '2021-09-01'.
         venue_id: string, venueId.
 
@@ -49,12 +50,12 @@ def get_field_info(session, field_type, date, venue_id):
     """
     url = "https://sports.sjtu.edu.cn/manage/fieldDetail/queryFieldSituation" 
 
-    data = {
-        'fieldType': field_type,
+    jsons = {
+        'fieldType': field_type_id,
         'date': date,
         'venueId': venue_id
     }
-    res = _request(session, 'POST', url, data=data)
+    res = _request(session, 'POST', url, json=jsons)
 
     res = json.loads(res)
     if res['code'] != 0:
@@ -63,12 +64,15 @@ def get_field_info(session, field_type, date, venue_id):
         # TODO: Analyze other returned error codes
         raise OttoError(ErrorCode_kUnknown, res['msg'])
     
+    if 'data' not in res:
+        raise OttoError(ErrorCode_kInvalidFieldMeta, res['msg'])
+    
     return res['data']
 
 
-def get_venue_type_id(session, venue_id, field_type):
+def get_field_type_id(session, venue_id, field_type_name):
     """
-    Get venue type id by venue id and field type.
+    Get field type id by venue id and field type name.
     
     Args:
         session: requests session, login session.
@@ -80,10 +84,10 @@ def get_venue_type_id(session, venue_id, field_type):
     """
     sports = get_venue_type_id_list(session, venue_id)
     for sport in sports:
-        if sport['name'] == field_type:
+        if sport['name'] == field_type_name:
             return sport['id']
 
-    raise OttoError(ErrorCode_kFieldTypeNotFound, f"Field type {field_type} not found.") 
+    raise OttoError(ErrorCode_kFieldTypeNotFound, f"Field type {field_type_name} not found.") 
 
 
 def get_venue_type_id_list(session, venue_id):
@@ -137,7 +141,8 @@ def confirm_order(session, order):
         'Content-Type': 'application/json;charset=UTF-8'
     }
 
-    res = _request(session, 'POST', url, params=headers, data=order_encrypted)
+    res = _request(session, 'POST', url, headers=headers, data=order_encrypted)
+
     # HTML response
     if "登录" in res:
         raise OttoError(ErrorCode_kLoginExpired, "Confirm order failed, login expired.")

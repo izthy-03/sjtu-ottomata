@@ -9,7 +9,7 @@ table = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
 
 def get_key():
     key = ""
-    for i in range(16):
+    for _ in range(16):
         key += choice(table)
     return key
 

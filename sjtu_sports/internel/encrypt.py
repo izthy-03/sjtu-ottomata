@@ -6,7 +6,7 @@ from random import choice
 
 
 def aes_encrypt(key, data):
-    cipher = AES.new(key, AES.MODE_ECB)
+    cipher = AES.new(key.encode(), AES.MODE_ECB)
     data = data.encode()
     data = pad(data, AES.block_size)
     return b64encode(cipher.encrypt(data)).decode()
