@@ -4,15 +4,25 @@ from abc import ABC, abstractmethod
 
 
 class OttoTask():
-    def __init__(self, venue_id, field_type_name, date, start_time=None, num=1, strategy="continuous") -> None:
+    def __init__(
+            self, 
+            venue_id, 
+            field_type_name, 
+            date, 
+            start_time=None, 
+            num=1, 
+            strategy="continuous",
+            force=False
+        ) -> None:
         """
         Args:
             venue_id: string, venue id.
             field_type: string, field type.
-            date: string, date.
+            date: string, date. Format: "YYYY-MM-DD".
             start_time: list of int, start times. Blank means any time.
             num: int, number of fields. Default is 1.
             strategy: string, strategy, continuous or any. Default is continuous.
+            force: bool, whether to force order without checking availability. Default is False.
         """
         self.venue_id = venue_id
         self.field_type_name = field_type_name
@@ -20,6 +30,7 @@ class OttoTask():
         self.start_time = start_time
         self.num = num
         self.strategy = strategy
+        self.force = force
 
         self.field_type_id = None
 
@@ -62,7 +73,7 @@ class OttoTask():
         self.mux.release()
         return killed
 
-    def show(self) -> str:
+    def __str__(self) -> str:
         return f"""
             Task ID: {self.id}
             Venue ID: {self.venue_id}

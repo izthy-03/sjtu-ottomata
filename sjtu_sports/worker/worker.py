@@ -2,6 +2,7 @@ import threading
 import logging
 import requests
 import time
+import concurrent.futures
 
 from sjtu_sports.utils.error import *
 from sjtu_sports.utils.logger import get_logger
@@ -28,6 +29,9 @@ class WorkerImpl(WorkerInterface):
         # Logger
         self.logger = logger
 
+        # Thread pool
+        self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=20)
+
 
     def __start_task(self, task: OttoTask, logger: logging.Logger):
 
@@ -50,10 +54,12 @@ class WorkerImpl(WorkerInterface):
             
         task.update_status("RUNNING")
 
+        fields = None
         while not task.is_killed():
             # 1. Query field info
             try: 
-                fields = get_field_info(self.session, task.field_type_id, task.date, task.venue_id) 
+                if not task.force or fields is None:
+                    fields = get_field_info(self.session, task.field_type_id, task.date, task.venue_id) 
 
             except OttoError as err:
                 logger.warning(f"Failed on getting field info: {err}")
@@ -74,6 +80,9 @@ class WorkerImpl(WorkerInterface):
                     sub_field = field['priceList'][start_time-7]
                     if int(sub_field['count']) > 0:
                         available_fields.append((field, sub_field, start_time))
+                    
+                    if task.force:
+                        available_fields.append((field, sub_field, start_time))
 
             if len(available_fields) == 0:
                 logger.debug("No available field found, retrying...")
@@ -82,10 +91,10 @@ class WorkerImpl(WorkerInterface):
 
             # 3. Confirm order
             format_time = lambda x: f"{x}:00-{x+1}:00"
-            spaces = [] 
-            for i in range(task.num):
+            futures = []
+            for i in range(len(available_fields)):
                 field, sub_field, start_time = available_fields[i]
-                spaces.append({
+                spaces = [{
                     "count": 1,
                     "venuePrice": sub_field['price'],
                     "status": 1,
@@ -94,24 +103,30 @@ class WorkerImpl(WorkerInterface):
                     "subSiteId": field['fieldId'],
                     "tensity": field['fieldDetailStatus'],
                     "venueNum": 1
-                }) 
+                }]
 
-            data = {
-                "venTypeId": task.field_type_id,
-                "venueId": task.venue_id,
-                "fieldType": task.field_type_name,
-                "returnUrl": "https://sports.sjtu.edu.cn/#/paymentResult/1",
-                "scheduleDate": task.date,
-                "week": task.week,
-                "spaces": spaces,
-                "tenSity": tensity_list[int(field['fieldDetailStatus'])],
-            }  
+                data = {
+                    "venTypeId": task.field_type_id,
+                    "venueId": task.venue_id,
+                    "fieldType": task.field_type_name,
+                    "returnUrl": "https://sports.sjtu.edu.cn/#/paymentResult/1",
+                    "scheduleDate": task.date,
+                    "week": task.week,
+                    "spaces": spaces,
+                    "tenSity": tensity_list[int(field['fieldDetailStatus'])],
+                }  
 
-            try:
-                confirm_order(self.session, data)
-            except OttoError as err:
-                print(f"Failed on confirming order: {err}")
-                time.sleep(1)
+                futures.append(self.pool.submit(confirm_order, self.session, data))
+            
+            succ = False
+            for fut in futures:
+                err = fut.exception()
+                if err is None:
+                    succ = True
+                    break
+            
+            if not succ:
+                logger.debug("Failed on confirming order, retrying...")
                 continue
 
             # 4. Task finished
