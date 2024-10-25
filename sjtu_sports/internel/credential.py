@@ -3,6 +3,7 @@ from pickle import dump, load
 from re import search
 from time import time
 from PIL import Image
+from getpass import getpass
 
 def get_session(session):
     url = 'https://jaccount.sjtu.edu.cn/oauth2/authorize?response_type=code&scope=profile&client_id=mB5nKHqC00MusWAgnqSF&redirect_uri=https://sports.sjtu.edu.cn/oauth2Login'
@@ -16,7 +17,7 @@ def get_JAAuthCookie(session):
     res = session.get(url).text
 
     username = input('请输入用户名：')
-    password = input('请输入密码：')
+    password = getpass('请输入密码：')
 
     sid = search(r'sid: "(.*?)"', res).group(1)
     returl = search(r'returl:"(.*?)"', res).group(1)

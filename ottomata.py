@@ -17,17 +17,18 @@ def cli():
 
 def test():
     session = login()
-    logger = get_logger("worker1", console_level=logging.DEBUG)
+    print(11)
+    logger = get_logger("worker1", console_level=logging.DEBUG, log_file_path="./log")
     worker = WorkerImpl(session, logger)
     task = OttoTask(
         "3b10ff47-7e83-4c21-816c-5edc257168c1",
         "羽毛球",
-        "2024-10-02",
-        force=True
+        "2024-11-02"
+        # force=True
     )
 
-    worker.add_task(task) 
     print(task)
+    worker.add_task(task) 
     time.sleep(10000)
 
 if __name__ == '__main__':

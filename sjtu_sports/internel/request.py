@@ -124,7 +124,7 @@ def confirm_order(session, order):
         err: OttoError.
 
     """
-    url = 'https://sports.sjtu.edu.cn//venue/personal/ConfirmOrder'
+    url = 'https://sports.sjtu.edu.cn/venue/personal/ConfirmOrder'
 
     key = get_key()
     time = get_timestamp_ms()
@@ -143,6 +143,7 @@ def confirm_order(session, order):
 
     res = _request(session, 'POST', url, headers=headers, data=order_encrypted)
 
+    print(res)
     # HTML response
     if "登录" in res:
         raise OttoError(ErrorCode_kLoginExpired, "Confirm order failed, login expired.")
@@ -156,5 +157,7 @@ def confirm_order(session, order):
         raise OttoError(ErrorCode_kUnknown, "Unknown error in confirm order.")
 
     if res['code'] != 0:
+        if res['code'] == 1002:
+            raise OttoError(ErrorCode_kNeedCaptcha, "Need captcha.")
         raise OttoError(ErrorCode_kInvalidOrder, res['msg'])
     

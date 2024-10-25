@@ -10,6 +10,9 @@ ErrorCode_kInvalidOrder = 101
 ErrorCode_kFieldTypeNotFound = 102
 ErrorCode_kInvalidFieldMeta = 103
 
+# Captcha
+ErrorCode_kNeedCaptcha = 1002
+
 ErrorCode_kUnknown = 199
 
 ErrorCode_name = {
@@ -21,7 +24,9 @@ ErrorCode_name = {
     101: "kInvalidOrder",
     102: "kFieldTypeNotFound",
     103: "kInvalidFieldMeta",
-    199: "kUnknown"
+    199: "kUnknown",
+
+    1002: "kNeedCaptcha",
 }
 
 class OttoError(Exception):

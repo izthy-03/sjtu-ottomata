@@ -5,7 +5,6 @@ import time
 import concurrent.futures
 
 from sjtu_sports.utils.error import *
-from sjtu_sports.utils.logger import get_logger
 from sjtu_sports.worker import WorkerInterface, OttoTask
 from sjtu_sports.internel.credential import get_session
 from sjtu_sports.internel.request import (
@@ -117,6 +116,7 @@ class WorkerImpl(WorkerInterface):
                 }  
 
                 futures.append(self.pool.submit(confirm_order, self.session, data))
+                time.sleep(0.5)
             
             succ = False
             for fut in futures:
@@ -124,6 +124,7 @@ class WorkerImpl(WorkerInterface):
                 if err is None:
                     succ = True
                     break
+                logger.debug(f"Failed on confirming order: {err}")
             
             if not succ:
                 logger.debug("Failed on confirming order, retrying...")
